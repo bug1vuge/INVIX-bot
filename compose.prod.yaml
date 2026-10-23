@@ -1,0 +1,35 @@
+# Production override: adds a TLS edge in front of the gateway.
+#
+#   docker compose -f compose.yaml -f compose.prod.yaml up -d
+#
+# Telegram requires HTTPS both for webhooks and for Mini Apps.
+
+services:
+  edge:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN}
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    depends_on:
+      - gateway
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  gateway:
+    # Only reachable through the edge.
+    ports: !reset []
+
+volumes:
+  caddy-data:
+  caddy-config:

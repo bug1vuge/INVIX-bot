@@ -1,0 +1,14 @@
+# TLS edge for production: obtains and renews a Let's Encrypt certificate for
+# $DOMAIN and forwards everything to the nginx gateway.
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	reverse_proxy gateway:80 {
+		header_up X-Request-ID {http.request.uuid}
+	}
+}
