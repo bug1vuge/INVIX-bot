@@ -12,7 +12,6 @@ export function TelegramWebApp() {
     const webApp = window.Telegram?.WebApp;
     if (!webApp?.initData) return;
 
-    document.documentElement.dataset.telegram = "true";
     webApp.ready();
     webApp.expand();
     webApp.setHeaderColor?.("bg_color");
