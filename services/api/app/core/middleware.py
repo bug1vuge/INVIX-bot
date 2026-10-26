@@ -7,6 +7,9 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from app.core.logging import request_id_ctx
 
 logger = logging.getLogger("app.access")
+error_logger = logging.getLogger("app.errors")
+
+INTERNAL_ERROR_BODY = b'{"error":{"code":"internal_error","message":"Internal error"}}'
 
 REQUEST_ID_HEADER = b"x-request-id"
 _SKIP_ACCESS_LOG = ("/health/",)
@@ -33,18 +36,44 @@ class RequestContextMiddleware:
         token = request_id_ctx.set(request_id)
 
         status_code = 500
+        response_started = False
         started = time.perf_counter()
 
         async def send_wrapper(message: Message) -> None:
-            nonlocal status_code
+            nonlocal status_code, response_started
             if message["type"] == "http.response.start":
                 status_code = message["status"]
+                response_started = True
                 message.setdefault("headers", [])
                 message["headers"].append((REQUEST_ID_HEADER, request_id.encode("latin-1")))
             await send(message)
 
         try:
             await self.app(scope, receive, send_wrapper)
+        except Exception:
+            # Handled here rather than with a FastAPI exception handler for
+            # Exception: Starlette re-raises after such a handler, so the error
+            # was logged twice and uvicorn dropped the keep-alive connection.
+            error_logger.exception("unhandled error")
+            if response_started:
+                raise
+            status_code = 500
+            await send_wrapper(
+                {
+                    "type": "http.response.start",
+                    "status": 500,
+                    "headers": [
+                        (b"content-type", b"application/json"),
+                        (b"content-length", str(len(INTERNAL_ERROR_BODY)).encode()),
+                    ],
+                }
+            )
+            await send(
+                {
+                    "type": "http.response.body",
+                    "body": INTERNAL_ERROR_BODY,
+                }
+            )
         finally:
             path = scope.get("path", "")
             if not path.startswith(_SKIP_ACCESS_LOG):

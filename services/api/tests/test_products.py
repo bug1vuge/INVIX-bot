@@ -90,6 +90,8 @@ async def test_storage_failure_does_not_create_product(client, auth_headers, sto
     storage.fail_next_put = True
     response = await create(client, auth_headers)
     assert response.status_code == 500
+    assert response.json() == {"error": {"code": "internal_error", "message": "Internal error"}}
+    assert response.headers["x-request-id"]
 
     listing = await client.get("/api/v1/products")
     assert listing.json()["items"] == []

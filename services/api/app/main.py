@@ -43,10 +43,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         message = f"{field}: {first.get('msg')}" if field else "Invalid request"
         return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, "validation_error", message)
 
-    @app.exception_handler(Exception)
-    async def unhandled_error_handler(_: Request, exc: Exception) -> JSONResponse:
-        logger.exception("unhandled error")
-        return _error(status.HTTP_500_INTERNAL_SERVER_ERROR, "internal_error", "Internal error")
+    # Unexpected exceptions are turned into a 500 by RequestContextMiddleware.
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
