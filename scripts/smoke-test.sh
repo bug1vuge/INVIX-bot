@@ -19,6 +19,7 @@ BASE="http://localhost:${HTTP_PORT:-80}"
 NETWORK="${PROJECT}_default"
 CURL_IMAGE=curlimages/curl:8.11.1
 WORKDIR=$(mktemp -d)
+chmod 755 "$WORKDIR"  # the curl container runs as a different user
 trap 'rm -rf "$WORKDIR"' EXIT
 
 step() { printf '\n==> %s\n' "$*"; }
@@ -68,6 +69,7 @@ png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 
     + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
 open(sys.argv[1], "wb").write(png)
 PY
+chmod 644 "$WORKDIR/product.png"
 
 step "Start the stack"
 docker compose -p "$PROJECT" up -d --build gateway api bot web
@@ -89,18 +91,20 @@ status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/v1/products" 
 expect_status 403 "$status" "POST /api/v1/products from outside"
 
 step "Create a product through the internal listener"
-created=$(docker run --rm --network "$NETWORK" -v "$WORKDIR:/data" "$CURL_IMAGE" -sS \
-  -o /data/created.json -w '%{http_code}' -X POST http://gateway:8081/api/v1/products \
-  -H "Authorization: Bearer $SERVICE_TOKEN" -H "Idempotency-Key: smoke:1" \
-  -F "name=Smoke test product" -F "image=@/data/product.png")
-expect_status 201 "$created" "create product"
-replayed=$(docker run --rm --network "$NETWORK" -v "$WORKDIR:/data" "$CURL_IMAGE" -sS \
-  -o /data/replayed.json -w '%{http_code}' -X POST http://gateway:8081/api/v1/products \
-  -H "Authorization: Bearer $SERVICE_TOKEN" -H "Idempotency-Key: smoke:1" \
-  -F "name=Smoke test product" -F "image=@/data/product.png")
-expect_status 200 "$replayed" "repeat with the same Idempotency-Key"
-product_id=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$WORKDIR/created.json")
-replay_id=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$WORKDIR/replayed.json")
+# Prints the response body, then the status code on the last line.
+create_product() {
+  internal_curl -w '\n%{http_code}' -X POST http://gateway:8081/api/v1/products \
+    -H "Authorization: Bearer $SERVICE_TOKEN" -H "Idempotency-Key: smoke:1" \
+    -F "name=Smoke test product" -F "image=@/data/product.png"
+}
+json_field() { python3 -c 'import json,sys; print(json.loads(sys.argv[1])[sys.argv[2]])' "$1" "$2"; }
+
+response=$(create_product)
+expect_status 201 "$(tail -n1 <<<"$response")" "create product"
+product_id=$(json_field "$(sed '$d' <<<"$response")" id)
+response=$(create_product)
+expect_status 200 "$(tail -n1 <<<"$response")" "repeat with the same Idempotency-Key"
+replay_id=$(json_field "$(sed '$d' <<<"$response")" id)
 [[ "$product_id" == "$replay_id" ]] || fail "replay created a second product"
 echo "ok  same product returned: $product_id"
 unauthorized=$(internal_curl -o /dev/null -w '%{http_code}' -X POST http://gateway:8081/api/v1/products \
