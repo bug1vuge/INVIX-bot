@@ -186,3 +186,11 @@ async def test_photo_download_failure_is_reported(app, updates):
 
     assert app.catalog.calls == []
     assert sent(app) == [texts.PHOTO_DOWNLOAD_FAILED]
+
+
+async def test_album_from_user_gets_one_greeting(app, updates):
+    await feed(app, updates.photo(USER_ID, caption="a", media_group_id="g2"))
+    await feed(app, updates.photo(USER_ID, media_group_id="g2"))
+    await feed(app, updates.photo(USER_ID, media_group_id="g2"))
+
+    assert sent(app) == [texts.GREETING]

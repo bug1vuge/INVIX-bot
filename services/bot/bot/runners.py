@@ -54,9 +54,9 @@ def _health_routes(app: Application) -> list[web.RouteDef]:
 
 
 async def _serve(web_app: web.Application, settings: Settings, stop: asyncio.Event) -> None:
-    runner = web.AppRunner(web_app, handle_signals=False, access_log=None)
+    runner = web.AppRunner(web_app, handle_signals=False, access_log=None, shutdown_timeout=20)
     await runner.setup()
-    site = web.TCPSite(runner, settings.server_host, settings.server_port, shutdown_timeout=20)
+    site = web.TCPSite(runner, settings.server_host, settings.server_port)
     await site.start()
     logger.info("http server started", extra={"port": settings.server_port})
     try:

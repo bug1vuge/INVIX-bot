@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 from tests.conftest import USER_ID
 
@@ -65,5 +66,20 @@ async def test_processed_update_is_acknowledged_once(app):
         assert (await post(client, raw_update(8))).status == 200
         assert (await post(client, raw_update(8))).status == 200
         assert len(app.bot.session.sent_texts()) == 1
+    finally:
+        await client.close()
+
+
+async def test_redis_outage_returns_error_so_telegram_retries(app, monkeypatch):
+    client = await make_client(app)
+
+    async def broken_set(*args, **kwargs):
+        raise RedisConnectionError("redis is down")
+
+    monkeypatch.setattr(app.redis, "set", broken_set)
+    try:
+        response = await post(client, raw_update(9))
+        assert response.status == 500
+        assert app.bot.session.requests == []
     finally:
         await client.close()

@@ -1,6 +1,7 @@
 from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
+from redis.asyncio import Redis
 
 from bot import texts
 from bot.config import Settings
@@ -31,8 +32,16 @@ async def any_message(message: Message, settings: Settings) -> None:
     await send_greeting(message, settings)
 
 
+async def any_album(message: Message, settings: Settings, redis: Redis) -> None:
+    # Every item of an album arrives as a separate message; greet only once.
+    key = f"bot:album:{message.chat.id}:{message.media_group_id}"
+    if await redis.set(key, "1", nx=True, ex=60):
+        await send_greeting(message, settings)
+
+
 def create_router() -> Router:
     router = Router(name="common")
     router.message.register(start, CommandStart())
+    router.message.register(any_album, F.chat.type == "private", F.media_group_id)
     router.message.register(any_message, F.chat.type == "private")
     return router

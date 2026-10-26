@@ -3,6 +3,7 @@ import logging
 from aiogram import Router
 from aiogram.filters import ExceptionTypeFilter
 from aiogram.types import ErrorEvent
+from redis.exceptions import RedisError
 
 from bot.middlewares.deduplication import UpdateInProgressError
 
@@ -20,7 +21,8 @@ async def log_error(event: ErrorEvent) -> bool:
 
 def create_router() -> Router:
     router = Router(name="errors")
-    # UpdateInProgressError must reach the webhook handler so that Telegram
-    # gets an error response and redelivers the update later.
-    router.errors.register(log_error, ~ExceptionTypeFilter(UpdateInProgressError))
+    # These must reach the webhook handler: Telegram then gets an error
+    # response and redelivers the update later instead of it being lost
+    # (another replica is still handling it, or Redis is unavailable).
+    router.errors.register(log_error, ~ExceptionTypeFilter(UpdateInProgressError, RedisError))
     return router
