@@ -40,6 +40,7 @@ jobs:
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+      - run: uv run mypy app
       - run: uv run pytest -q
       - name: Migrations apply, roll back and match the models
         env:
@@ -69,6 +70,7 @@ jobs:
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+      - run: uv run mypy bot
       - run: uv run pytest -q
 
   web:
@@ -101,6 +103,13 @@ jobs:
           sed -i 's/^BOT_TOKEN=$/BOT_TOKEN=1:ci/; s/^SERVICE_TOKEN=$/SERVICE_TOKEN=ci/; s/^POSTGRES_PASSWORD=$/POSTGRES_PASSWORD=ci/; s/^MINIO_ROOT_PASSWORD=$/MINIO_ROOT_PASSWORD=ci-password/; s/^WEBHOOK_SECRET=$/WEBHOOK_SECRET=ci-webhook-secret-value/' .env
           docker compose config --quiet
           docker compose -f compose.yaml -f compose.prod.yaml config --quiet
+      - name: Lint shell scripts
+        run: shellcheck scripts/*.sh
+      - name: Lint Dockerfiles
+        run: |
+          for file in services/*/Dockerfile; do
+            docker run --rm -i hadolint/hadolint:v2.12.0 < "$file"
+          done
       - name: Check gateway config
         run: |
           docker run --rm -e S3_BUCKET=products -e WEBHOOK_PATH=/bot/webhook \

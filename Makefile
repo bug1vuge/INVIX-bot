@@ -37,8 +37,8 @@ test:
 	cd services/web && npm run typecheck
 
 lint:
-	cd services/api && uv run ruff check . && uv run ruff format --check .
-	cd services/bot && uv run ruff check . && uv run ruff format --check .
+	cd services/api && uv run ruff check . && uv run ruff format --check . && uv run mypy app
+	cd services/bot && uv run ruff check . && uv run ruff format --check . && uv run mypy bot
 	cd services/web && npm run lint
 
 fmt:

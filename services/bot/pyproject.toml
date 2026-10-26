@@ -13,6 +13,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "fakeredis>=2.32",
+    "mypy>=1.18",
     "pytest>=9.1",
     "pytest-asyncio>=1.4",
     "ruff>=0.17",
@@ -33,3 +34,9 @@ ignore = ["RUF001"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
