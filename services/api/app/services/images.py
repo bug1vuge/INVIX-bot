@@ -34,9 +34,23 @@ def inspect_image(data: bytes, max_pixels: int) -> ImageInfo:
             if width * height > max_pixels:
                 raise InvalidImageError("Image resolution is too large")
             img.verify()
+        # verify() only checks the file structure; decoding the pixels catches
+        # files with a valid header but broken data, which browsers can't show.
+        # verify() leaves the image unusable, hence the second open. JPEG is
+        # decoded at 1/8 scale (draft mode): the whole data stream is still
+        # read, at a fraction of the memory; draft() is a no-op for PNG/WebP.
+        with Image.open(BytesIO(data)) as img:
+            img.draft("RGB", (max(1, width // 8), max(1, height // 8)))
+            img.load()
     except InvalidImageError:
         raise
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+    except (
+        UnidentifiedImageError,
+        OSError,
+        SyntaxError,
+        ValueError,
+        Image.DecompressionBombError,
+    ) as exc:
         raise InvalidImageError("File is not a valid image") from exc
 
     if fmt not in SUPPORTED_FORMATS:

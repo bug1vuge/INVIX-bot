@@ -7,15 +7,13 @@ from app.api.deps import ProductServiceDep, SessionDep, SettingsDep
 from app.core.security import require_service_token
 from app.models import Product
 from app.schemas.product import ErrorResponse, ProductOut, ProductPage
-from app.services.errors import (
-    ImageTooLargeError,
-    InvalidProductNameError,
-    ProductNotFoundError,
-)
+from app.services.errors import ImageTooLargeError, ProductNotFoundError
+from app.services.names import normalize_name
 
 router = APIRouter(prefix="/api/v1/products", tags=["products"])
 
-NAME_MAX_LENGTH = 255
+# created_by is stored as BIGINT (Telegram user ids fit into it).
+BIGINT_MAX = 2**63 - 1
 
 
 @router.get("", response_model=ProductPage)
@@ -62,14 +60,10 @@ async def create_product(
     response: Response,
     name: Annotated[str, Form()],
     image: Annotated[UploadFile, File()],
-    created_by: Annotated[int | None, Form()] = None,
+    created_by: Annotated[int | None, Form(ge=1, le=BIGINT_MAX)] = None,
     idempotency_key: Annotated[str | None, Header(max_length=128)] = None,
 ) -> ProductOut:
-    clean_name = " ".join(name.split())
-    if not clean_name:
-        raise InvalidProductNameError("Product name must not be empty")
-    if len(clean_name) > NAME_MAX_LENGTH:
-        raise InvalidProductNameError(f"Product name must not exceed {NAME_MAX_LENGTH} characters")
+    clean_name = normalize_name(name)
 
     # Read one byte past the limit to detect oversized uploads without
     # buffering arbitrarily large bodies in memory.

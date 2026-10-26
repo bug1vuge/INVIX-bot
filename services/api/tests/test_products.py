@@ -1,4 +1,12 @@
+import struct
+import zlib
+
 from tests.conftest import make_image
+
+
+def _png_chunk(tag: bytes, data: bytes) -> bytes:
+    crc = struct.pack(">I", zlib.crc32(tag + data))
+    return struct.pack(">I", len(data)) + tag + data + crc
 
 
 async def create(client, headers, name="Кружка", image=None, key=None):
@@ -54,6 +62,31 @@ async def test_create_rejects_non_image(client, auth_headers, storage):
     assert storage.objects == {}
 
 
+async def test_create_rejects_image_with_broken_pixel_data(client, auth_headers, storage):
+    # A valid PNG header and chunk structure, but far too little pixel data.
+    png = make_image("PNG", size=(100, 100))
+    header_end = png.index(b"IDAT") - 4
+    broken = (
+        png[:header_end]
+        + _png_chunk(b"IDAT", zlib.compress(b"\x00" * 10))
+        + _png_chunk(b"IEND", b"")
+    )
+
+    response = await create(client, auth_headers, image=broken)
+    assert response.status_code == 422
+    assert storage.objects == {}
+
+
+async def test_create_rejects_out_of_range_author(client, auth_headers):
+    response = await client.post(
+        "/api/v1/products",
+        headers=auth_headers,
+        data={"name": "Стул", "created_by": str(2**70)},
+        files={"image": ("photo.jpg", make_image(), "image/jpeg")},
+    )
+    assert response.status_code == 422
+
+
 async def test_create_rejects_unsupported_format(client, auth_headers):
     response = await create(client, auth_headers, image=make_image("GIF"))
     assert response.status_code == 422
@@ -69,6 +102,24 @@ async def test_create_rejects_blank_name(client, auth_headers):
     response = await create(client, auth_headers, name="   ")
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "invalid_name"
+
+
+async def test_create_rejects_control_characters(client, auth_headers, storage):
+    response = await create(client, auth_headers, name="Чай\x00ник")
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_name"
+    assert storage.objects == {}
+
+
+async def test_create_rejects_invisible_name(client, auth_headers):
+    response = await create(client, auth_headers, name="\u200b\u200b")
+    assert response.status_code == 422
+
+
+async def test_create_drops_invisible_characters(client, auth_headers):
+    response = await create(client, auth_headers, name="Ча\u200bйник")
+    assert response.status_code == 201
+    assert response.json()["name"] == "Чайник"
 
 
 async def test_create_rejects_long_name(client, auth_headers):
