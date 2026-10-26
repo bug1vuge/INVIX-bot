@@ -149,10 +149,10 @@ jobs:
           grep -E "^(==>|ok |FAIL|  |All )" smoke.log > checks.txt || true; echo "::error title=smoke::$(enc < checks.txt)"
           docker compose -p catalog ps -a > ps.txt 2>&1 || true
           echo "::error title=ps::$(enc < ps.txt)"
-          for s in gateway bot; do
-            docker compose -p catalog logs --no-color --tail=25 $s > $s.txt 2>&1 || true
-            echo "::error title=$s::$(enc < $s.txt)"
-          done
+          docker compose -p catalog logs --no-color gateway 2>&1 | grep -E "\[error\]|\[warn\]|\"status\":5" | grep -v "could not be resolved" | tail -30 | cut -c1-330 > gw.txt || true
+          echo "::error title=gateway::$(enc < gw.txt)"
+          docker compose -p catalog logs --no-color web 2>&1 | grep -iE "error|fail" | tail -15 | cut -c1-300 > web.txt || true
+          echo "::error title=web::$(enc < web.txt)"
       - name: Logs on failure
         if: failure()
         run: docker compose -p catalog logs --no-color --tail=200
