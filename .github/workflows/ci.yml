@@ -103,14 +103,9 @@ jobs:
           docker compose -f compose.yaml -f compose.prod.yaml config --quiet
       - name: Check gateway config
         run: |
-          docker run --rm \
-            -e S3_BUCKET=products -e WEBHOOK_PATH=/bot/webhook \
-            --add-host api:127.0.0.1 --add-host web:127.0.0.1 \
-            --add-host bot:127.0.0.1 --add-host minio:127.0.0.1 \
-            -v "$PWD/deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
-            -v "$PWD/deploy/nginx/snippets:/etc/nginx/snippets:ro" \
-            -v "$PWD/deploy/nginx/templates:/etc/nginx/templates:ro" \
-            nginx:1.28-alpine nginx -t
+          docker run --rm -e S3_BUCKET=products -e WEBHOOK_PATH=/bot/webhook \
+            -v "$PWD/deploy/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro" \
+            haproxy:3.2-alpine haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg
       - name: Check Caddyfile
         run: |
           docker run --rm -e DOMAIN=example.com \

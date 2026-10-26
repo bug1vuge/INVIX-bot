@@ -131,7 +131,7 @@ sleep 8
 for _ in $(seq 1 30); do curl -s -o /dev/null "$BASE/api/v1/products?limit=1"; done
 upstreams=$(docker compose -p "$PROJECT" logs --no-log-prefix --since 30s gateway \
   | grep '"uri":"/api/v1/products?limit=1"' \
-  | python3 -c 'import json,sys; print(len({json.loads(l)["upstream"] for l in sys.stdin if l.startswith("{")}))')
+  | python3 -c 'import json,sys; print(len({json.loads(l)["server"] for l in sys.stdin if l.startswith("{")}))')
 (( upstreams >= 3 )) || fail "requests reached only $upstreams api replicas"
 echo "ok  30 requests reached $upstreams api replicas"
 
