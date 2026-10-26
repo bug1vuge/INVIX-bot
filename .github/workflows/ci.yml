@@ -137,7 +137,18 @@ jobs:
             -e 's|^MINIO_ROOT_PASSWORD=$|MINIO_ROOT_PASSWORD=smoke-minio-password|' \
             -e 's|^HTTP_PORT=.*|HTTP_PORT=8080|' \
             .env
-      - run: ./scripts/smoke-test.sh
+      - run: set -o pipefail; ./scripts/smoke-test.sh 2>&1 | tee smoke.log
+      - name: Debug annotations
+        if: failure()
+        run: |
+          enc() { python3 -c 'import sys; print(sys.stdin.read()[-6000:].replace("%","%25").replace("\r","").replace("\n","%0A"))'; }
+          echo "::error title=smoke::$(enc < smoke.log)"
+          docker compose -p catalog ps -a > ps.txt 2>&1 || true
+          echo "::error title=ps::$(enc < ps.txt)"
+          for s in gateway api web bot migrate minio; do
+            docker compose -p catalog logs --no-color --tail=40 $s > $s.txt 2>&1 || true
+            echo "::error title=$s::$(enc < $s.txt)"
+          done
       - name: Logs on failure
         if: failure()
         run: docker compose -p catalog logs --no-color --tail=200
