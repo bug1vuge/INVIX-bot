@@ -27,7 +27,7 @@ RUN addgroup -S -g 10001 app && adduser -S -u 10001 -G app app
 COPY --from=builder --chown=app:app /app/.next/standalone ./
 COPY --from=builder --chown=app:app /app/.next/static ./.next/static
 
-USER app
+USER 10001:10001
 
 EXPOSE 3000
 

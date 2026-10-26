@@ -34,7 +34,7 @@ COPY --chown=app:app alembic.ini ./
 COPY --chown=app:app migrations ./migrations
 COPY --chown=app:app app ./app
 
-USER app
+USER 10001:10001
 
 EXPOSE 8000
 

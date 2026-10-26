@@ -31,7 +31,7 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=app:app bot ./bot
 
-USER app
+USER 10001:10001
 
 EXPOSE 8080
 
