@@ -139,16 +139,8 @@ jobs:
             .env
       - name: Probe images
         run: |
-          out=""
-          for img in quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z quay.io/minio/minio:latest minio/minio:latest pgsty/minio:latest bitnami/minio:latest cgr.dev/chainguard/minio:latest quay.io/minio/mc:latest; do
-            if docker pull -q "$img" >/dev/null 2>&1; then
-              v=$(docker run --rm --entrypoint sh "$img" -c 'minio --version 2>/dev/null | head -1; command -v mc >/dev/null && echo has-mc || echo no-mc' 2>&1 | tr '\n' ' ')
-              out="$out%0AOK  $img :: $v"
-            else
-              out="$out%0AFAIL $img"
-            fi
-          done
-          echo "::error title=probe::$out"
+          tags=$(curl -s "https://hub.docker.com/v2/repositories/pgsty/minio/tags?page_size=25&ordering=last_updated" | python3 -c 'import json,sys; print(" ".join(t["name"] for t in json.load(sys.stdin)["results"]))')
+          echo "::error title=probe::$tags"
       - run: set -o pipefail; ./scripts/smoke-test.sh 2>&1 | tee smoke.log
       - name: Debug annotations
         if: failure()
