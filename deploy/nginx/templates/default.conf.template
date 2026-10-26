@@ -3,19 +3,19 @@
 
 upstream api_upstream {
     zone api_upstream 64k;
-    server api:8000 resolve max_fails=2 fail_timeout=10s;
+    server api:8000 resolve max_fails=1 fail_timeout=5s;
     keepalive 32;
 }
 
 upstream web_upstream {
     zone web_upstream 64k;
-    server web:3000 resolve max_fails=2 fail_timeout=10s;
+    server web:3000 resolve max_fails=1 fail_timeout=5s;
     keepalive 32;
 }
 
 upstream bot_upstream {
     zone bot_upstream 64k;
-    server bot:8080 resolve max_fails=2 fail_timeout=10s;
+    server bot:8080 resolve max_fails=1 fail_timeout=5s;
     keepalive 16;
 }
 

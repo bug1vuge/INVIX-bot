@@ -135,22 +135,30 @@ upstreams=$(docker compose -p "$PROJECT" logs --no-log-prefix --since 30s gatewa
 (( upstreams >= 3 )) || fail "requests reached only $upstreams api replicas"
 echo "ok  30 requests reached $upstreams api replicas"
 
-step "Failover: kill one replica of every service"
-docker kill "${PROJECT}-api-1" "${PROJECT}-bot-1" "${PROJECT}-web-1" >/dev/null
-errors=0
-for i in $(seq 1 30); do
-  for url in "$BASE/api/v1/products" "$BASE/"; do
-    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$url")
-    [[ "$code" == "200" ]] || { echo "  $url -> $code"; errors=$((errors + 1)); }
+step "Failover: kill one replica of every service, three times"
+for round in 1 2 3; do
+  victim=$round
+  docker kill "${PROJECT}-api-$victim" "${PROJECT}-bot-$((victim % 2 + 1))" "${PROJECT}-web-$((victim % 2 + 1))" >/dev/null
+  errors=0
+  for i in $(seq 1 40); do
+    for url in "$BASE/api/v1/products" "$BASE/"; do
+      code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$url")
+      [[ "$code" == "200" ]] || { echo "  round $round: $url -> $code"; errors=$((errors + 1)); }
+    done
+    code=$(post_webhook $((1000 * round + i)) "$WEBHOOK_SECRET")
+    [[ "$code" == "200" ]] || { echo "  round $round: webhook -> $code"; errors=$((errors + 1)); }
   done
-  code=$(post_webhook $((200 + i)) "$WEBHOOK_SECRET")
-  [[ "$code" == "200" ]] || { echo "  webhook -> $code"; errors=$((errors + 1)); }
+  (( errors == 0 )) || fail "$errors failed requests in round $round"
+  echo "ok  round $round: 120 requests right after the kill, all succeeded"
+  docker start "${PROJECT}-api-$victim" "${PROJECT}-bot-$((victim % 2 + 1))" "${PROJECT}-web-$((victim % 2 + 1))" >/dev/null
+  sleep 10
 done
-(( errors == 0 )) || fail "$errors failed requests after killing replicas"
-echo "ok  90 requests after the kill, all succeeded"
 
-step "Killed replicas come back"
-docker start "${PROJECT}-api-1" "${PROJECT}-bot-1" "${PROJECT}-web-1" >/dev/null
+step "Killed replicas are back in rotation"
 wait_for "$BASE/api/v1/products" 60
+for service in api bot web; do
+  healthy=$(docker compose -p "$PROJECT" ps --status running -q "$service" | wc -l)
+  echo "ok  $service: $healthy replicas running"
+done
 
 printf '\nAll smoke checks passed.\n'
