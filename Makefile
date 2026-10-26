@@ -1,11 +1,11 @@
-COMPOSE      := docker compose
-COMPOSE_PROD := docker compose -f compose.yaml -f compose.prod.yaml
+# Compose files are picked from COMPOSE_FILE in .env: compose.yaml locally,
+# compose.yaml:compose.prod.yaml on the server (adds the TLS edge).
+COMPOSE := docker compose
 
-.PHONY: help up up-prod down ps logs scale test lint fmt
+.PHONY: help up down ps logs scale test lint fmt
 
 help:
-	@echo "up        build and start the stack on http://localhost (no TLS)"
-	@echo "up-prod   build and start with the TLS edge (needs DOMAIN in .env)"
+	@echo "up        build and start the stack"
 	@echo "down      stop the stack (volumes are kept)"
 	@echo "ps        show containers and health"
 	@echo "logs      follow logs, e.g. make logs s=bot"
@@ -16,23 +16,20 @@ help:
 up:
 	$(COMPOSE) up -d --build
 
-up-prod:
-	$(COMPOSE_PROD) up -d --build
-
 down:
-	$(COMPOSE_PROD) down
+	$(COMPOSE) down
 
 ps:
-	$(COMPOSE_PROD) ps
+	$(COMPOSE) ps -a
 
 logs:
-	$(COMPOSE_PROD) logs -f --tail=100 $(s)
+	$(COMPOSE) logs -f --tail=100 $(s)
 
 api ?= 2
 bot ?= 2
 web ?= 2
 scale:
-	$(COMPOSE_PROD) up -d --no-recreate --scale api=$(api) --scale bot=$(bot) --scale web=$(web)
+	$(COMPOSE) up -d --no-recreate --scale api=$(api) --scale bot=$(bot) --scale web=$(web) api bot web
 
 test:
 	cd services/api && uv run pytest -q

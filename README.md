@@ -81,15 +81,15 @@ make up          # или: docker compose up -d --build
    cp .env.example .env
    nano .env
    ```
-   Обязательно: `DOMAIN`, `PUBLIC_URL=https://<домен>`, `BOT_TOKEN` (от @BotFather), `ADMIN_IDS` (свой id можно узнать у @userinfobot), `WEBHOOK_SECRET`, `SERVICE_TOKEN`, `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`.
-4. Запустить с TLS:
+   Обязательно: `DOMAIN`, `PUBLIC_URL=https://<домен>`, `BOT_TOKEN` (от @BotFather), `ADMIN_IDS` (свой id можно узнать у @userinfobot), `WEBHOOK_SECRET`, `SERVICE_TOKEN`, `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`. И раскомментировать `COMPOSE_FILE=compose.yaml:compose.prod.yaml` — тогда все команды `docker compose` и `make` на сервере работают с TLS-edge.
+4. Запустить:
    ```bash
-   make up-prod     # docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+   make up          # docker compose up -d --build
    ```
    Caddy сам выпустит сертификат Let's Encrypt. Сервис `bot-setup` зарегистрирует вебхук, команды и кнопку «Каталог» в меню бота.
 5. Проверить: `make ps` — все сервисы `healthy`, `migrate` и `bot-setup` завершились с кодом 0.
 
-Обновление: `git pull && make up-prod`. Миграции применятся автоматически перед стартом API.
+Обновление: `git pull && make up`. Миграции применятся автоматически перед стартом API.
 
 ## Проверка отказоустойчивости
 
