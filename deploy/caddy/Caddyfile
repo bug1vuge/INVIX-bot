@@ -1,5 +1,5 @@
 # TLS edge for production: obtains and renews a Let's Encrypt certificate for
-# $DOMAIN and forwards everything to the nginx gateway.
+# $DOMAIN and forwards everything to the HAProxy gateway.
 {$DOMAIN} {
 	encode zstd gzip
 
