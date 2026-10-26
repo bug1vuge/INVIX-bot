@@ -6,7 +6,7 @@ from aiogram.enums import ChatAction
 from aiogram.exceptions import TelegramAPIError, TelegramNetworkError
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.types import Document, Message, PhotoSize
 from redis.asyncio import Redis
 
 from bot import texts
@@ -63,12 +63,15 @@ async def create_product(
         await message.answer(texts.NAME_TOO_LONG.format(limit=NAME_MAX_LENGTH))
         return
 
+    file: PhotoSize | Document
     if message.photo:
         file = message.photo[-1]  # the largest available size
         filename = f"{file.file_unique_id}.jpg"
-    else:
+    elif message.document:
         file = message.document
-        filename = file.file_name or f"{file.file_unique_id}"
+        filename = file.file_name or file.file_unique_id
+    else:  # pragma: no cover - the router filter guarantees one of them
+        return
 
     if file.file_size and file.file_size > settings.max_photo_size_bytes:
         await message.answer(texts.PHOTO_TOO_LARGE.format(limit=settings.max_photo_size_mb))
