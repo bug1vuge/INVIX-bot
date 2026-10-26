@@ -8,6 +8,17 @@ from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
 
+PROCESSING = b"processing"
+
+
+class UpdateInProgressError(Exception):
+    """Another replica has claimed the update and has not finished it yet.
+
+    Raised instead of silently skipping: the webhook then answers with an
+    error and Telegram redelivers the update later. If the replica that
+    claimed it has died, the claim expires and the redelivery is handled.
+    """
+
 
 class UpdateDeduplicationMiddleware(BaseMiddleware):
     """Makes sure every update is handled once across all replicas.
@@ -18,7 +29,7 @@ class UpdateDeduplicationMiddleware(BaseMiddleware):
     redelivery can be processed again.
     """
 
-    def __init__(self, redis: Redis, processing_ttl: int = 120, done_ttl: int = 86400) -> None:
+    def __init__(self, redis: Redis, processing_ttl: int = 60, done_ttl: int = 86400) -> None:
         self._redis = redis
         self._processing_ttl = processing_ttl
         self._done_ttl = done_ttl
@@ -37,6 +48,11 @@ class UpdateDeduplicationMiddleware(BaseMiddleware):
 
         claimed = await self._redis.set(key, "processing", nx=True, ex=self._processing_ttl)
         if not claimed:
+            if await self._redis.get(key) == PROCESSING:
+                logger.warning(
+                    "update is being handled elsewhere", extra={"update_id": event.update_id}
+                )
+                raise UpdateInProgressError(event.update_id)
             logger.info("duplicate update skipped", extra={"update_id": event.update_id})
             return None
 
