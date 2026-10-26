@@ -80,7 +80,9 @@ for service in api bot web; do
   (( running >= 2 )) || fail "$service has $running running replicas, expected at least 2"
   echo "ok  $service: $running replicas"
 done
-expect_status completed "$(docker inspect -f '{{.State.Status}}' "${PROJECT}-migrate-1")" "migrate job"
+migrate_exit=$(docker inspect -f '{{.State.ExitCode}}' "${PROJECT}-migrate-1")
+[[ "$migrate_exit" == "0" ]] || fail "migrate job exited with code $migrate_exit"
+echo "ok  migrate job finished with code 0"
 
 step "Public API is read-only"
 status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/v1/products" -F name=x -F image=@"$WORKDIR/product.png")
