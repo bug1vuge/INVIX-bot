@@ -144,7 +144,14 @@ async def _hold_leadership(redis: Redis, key: str, instance_id: str) -> None:
 async def _poll_while_leader(
     app: Application, key: str, instance_id: str, stop: asyncio.Event
 ) -> None:
-    await app.bot.delete_webhook(drop_pending_updates=False)
+    try:
+        await app.bot.delete_webhook(drop_pending_updates=False)
+    except Exception:
+        # Telegram is unreachable: give the leadership back and try again later.
+        logger.warning("cannot remove webhook before polling", exc_info=True)
+        with contextlib.suppress(RedisError):
+            await app.redis.eval(_RELEASE_SCRIPT, 1, key, instance_id)
+        return
 
     polling = asyncio.create_task(
         app.dispatcher.start_polling(app.bot, handle_signals=False, close_bot_session=False)

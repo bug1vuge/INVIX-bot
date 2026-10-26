@@ -27,6 +27,7 @@ PHOTO_TOO_LARGE = "Файл слишком большой: максимум {lim
 
 PRODUCT_CREATED = "Товар «{name}» добавлен в каталог."
 PRODUCT_REJECTED = "Не удалось добавить товар: {reason}"
+PHOTO_DOWNLOAD_FAILED = "Не удалось получить фото от Telegram. Отправьте его ещё раз."
 PRODUCT_FAILED = "Сервис каталога сейчас недоступен. Попробуйте ещё раз через минуту."
 
 API_REASONS = {

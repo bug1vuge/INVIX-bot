@@ -169,3 +169,20 @@ async def test_failed_update_can_be_redelivered(app, updates):
     await feed(app, update)
     assert len(app.catalog.calls) == 2
     assert texts.PRODUCT_CREATED.format(name="Кресло") in sent(app)
+
+
+async def test_start_in_group_uses_link_button(app, updates):
+    await feed(app, updates.message(ADMIN_ID, chat_type="supergroup", text="/start"))
+
+    [request] = app.bot.session.requests
+    button = request.reply_markup.inline_keyboard[0][0]
+    assert button.web_app is None
+    assert button.url == "https://shop.example.com"
+
+
+async def test_photo_download_failure_is_reported(app, updates):
+    app.bot.session.fail_downloads = True
+    await feed(app, updates.photo(ADMIN_ID, caption="Ваза"))
+
+    assert app.catalog.calls == []
+    assert sent(app) == [texts.PHOTO_DOWNLOAD_FAILED]

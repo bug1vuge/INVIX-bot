@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 from aiogram import Bot
 from aiogram.client.session.base import BaseSession
+from aiogram.exceptions import TelegramNetworkError
 from aiogram.methods import GetFile, SendChatAction, TelegramMethod
 from aiogram.types import Chat, File, Message, PhotoSize, Update, User
 from fakeredis import FakeAsyncRedis
@@ -26,6 +27,7 @@ class RecordingSession(BaseSession):
         super().__init__()
         self.requests: list[TelegramMethod] = []
         self._message_id = 500
+        self.fail_downloads = False
 
     async def close(self) -> None:
         return None
@@ -52,6 +54,8 @@ class RecordingSession(BaseSession):
         chunk_size=65536,
         raise_for_status=True,
     ):
+        if self.fail_downloads:
+            raise TelegramNetworkError(method=GetFile(file_id="x"), message="connection reset")
         yield PHOTO_BYTES
 
     def sent_texts(self) -> list[str]:
@@ -102,14 +106,15 @@ class UpdateFactory:
         self._update_id = 0
         self._message_id = 0
 
-    def message(self, user_id: int, **fields: Any) -> Update:
+    def message(self, user_id: int, chat_type: str = "private", **fields: Any) -> Update:
         self._update_id += 1
         self._message_id += 1
         user = User(id=user_id, is_bot=False, first_name="Test")
+        chat_id = user_id if chat_type == "private" else -100500
         message = Message(
             message_id=self._message_id,
             date=datetime.now(UTC),
-            chat=Chat(id=user_id, type="private"),
+            chat=Chat(id=chat_id, type=chat_type),
             from_user=user,
             **fields,
         )

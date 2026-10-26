@@ -3,6 +3,7 @@ from io import BytesIO
 
 from aiogram import Bot, F, Router, html
 from aiogram.enums import ChatAction
+from aiogram.exceptions import TelegramAPIError, TelegramNetworkError
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
@@ -73,10 +74,14 @@ async def create_product(
         await message.answer(texts.PHOTO_TOO_LARGE.format(limit=settings.max_photo_size_mb))
         return
 
-    await bot.send_chat_action(message.chat.id, ChatAction.UPLOAD_PHOTO)
-
     buffer = BytesIO()
-    await bot.download(file, destination=buffer)
+    try:
+        await bot.send_chat_action(message.chat.id, ChatAction.UPLOAD_PHOTO)
+        await bot.download(file, destination=buffer)
+    except (TelegramAPIError, TelegramNetworkError):
+        logger.exception("failed to download the photo from Telegram")
+        await message.answer(texts.PHOTO_DOWNLOAD_FAILED)
+        return
 
     try:
         product = await catalog.create_product(

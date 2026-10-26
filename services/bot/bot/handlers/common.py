@@ -8,10 +8,14 @@ from bot.keyboards import admin_menu_keyboard, catalog_keyboard
 
 
 async def send_greeting(message: Message, settings: Settings) -> None:
-    await message.answer(texts.GREETING, reply_markup=catalog_keyboard(settings.webapp_url))
+    private_chat = message.chat.type == "private"
+    await message.answer(
+        texts.GREETING,
+        reply_markup=catalog_keyboard(settings.webapp_url, private_chat=private_chat),
+    )
 
     user_id = message.from_user.id if message.from_user else None
-    if message.chat.type == "private" and settings.is_admin(user_id):
+    if private_chat and settings.is_admin(user_id):
         await message.answer(
             texts.GREETING_ADMIN_HINT.format(button=texts.CREATE_PRODUCT_BUTTON),
             reply_markup=admin_menu_keyboard(),

@@ -9,16 +9,16 @@ from aiogram.types import (
 from bot import texts
 
 
-def catalog_keyboard(webapp_url: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=texts.OPEN_CATALOG_BUTTON, web_app=WebAppInfo(url=webapp_url)
-                )
-            ]
-        ]
-    )
+def catalog_keyboard(webapp_url: str, *, private_chat: bool = True) -> InlineKeyboardMarkup:
+    # Telegram allows web_app buttons only in private chats; elsewhere the
+    # catalog opens as a regular link.
+    if private_chat:
+        button = InlineKeyboardButton(
+            text=texts.OPEN_CATALOG_BUTTON, web_app=WebAppInfo(url=webapp_url)
+        )
+    else:
+        button = InlineKeyboardButton(text=texts.OPEN_CATALOG_BUTTON, url=webapp_url)
+    return InlineKeyboardMarkup(inline_keyboard=[[button]])
 
 
 def admin_menu_keyboard() -> ReplyKeyboardMarkup:
