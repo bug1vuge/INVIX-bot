@@ -149,20 +149,17 @@ services:
   # --- edge -----------------------------------------------------------------
 
   gateway:
-    image: nginx:1.28-alpine
+    image: haproxy:3.2-alpine
     restart: unless-stopped
     environment:
       S3_BUCKET: ${S3_BUCKET:-products}
       WEBHOOK_PATH: ${WEBHOOK_PATH:-/bot/webhook}
     volumes:
-      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./deploy/nginx/snippets:/etc/nginx/snippets:ro
-      - ./deploy/nginx/templates:/etc/nginx/templates:ro
-      - media-cache:/var/cache/nginx/media
+      - ./deploy/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     ports:
       - "${HTTP_PORT:-80}:80"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8081/nginx-health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8081/gateway-health"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -172,4 +169,3 @@ volumes:
   postgres-data:
   redis-data:
   minio-data:
-  media-cache:
