@@ -71,7 +71,7 @@ def create_application(
         catalog=catalog,
         redis=redis,
     )
-    dispatcher.update.outer_middleware(UpdateDeduplicationMiddleware(redis, processing_ttl=60))
+    dispatcher.update.outer_middleware(UpdateDeduplicationMiddleware(redis))
     dispatcher.include_router(build_router())
 
     return Application(

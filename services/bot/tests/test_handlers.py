@@ -1,7 +1,9 @@
+import pytest
 from aiogram.methods import SendMessage
 from aiogram.types import InlineKeyboardMarkup
 
 from bot import texts
+from bot.middlewares.deduplication import UpdateInProgressError
 from bot.services.catalog_api import CatalogApiError, CatalogUnavailableError
 from bot.states import ProductForm
 from tests.conftest import ADMIN_ID, PHOTO_BYTES, USER_ID, feed
@@ -140,3 +142,30 @@ async def test_duplicate_update_is_ignored(app, updates):
     await feed(app, update)
 
     assert len(app.catalog.calls) == 1
+
+
+async def test_update_claimed_by_another_replica_is_retried_later(app, updates):
+    update = updates.photo(ADMIN_ID, caption="Кресло")
+    # Another replica took the update and died before finishing it.
+    key = f"bot:{app.bot.id}:update:{update.update_id}"
+    await app.redis.set(key, "processing", ex=60)
+
+    with pytest.raises(UpdateInProgressError):
+        await feed(app, update)
+    assert app.catalog.calls == []
+
+    # Once the claim expires, the redelivered update is handled normally.
+    await app.redis.delete(key)
+    await feed(app, update)
+    assert len(app.catalog.calls) == 1
+
+
+async def test_failed_update_can_be_redelivered(app, updates):
+    app.catalog.error = RuntimeError("unexpected")
+    update = updates.photo(ADMIN_ID, caption="Кресло")
+    await feed(app, update)  # logged by the error handler
+
+    app.catalog.error = None
+    await feed(app, update)
+    assert len(app.catalog.calls) == 2
+    assert texts.PRODUCT_CREATED.format(name="Кресло") in sent(app)
